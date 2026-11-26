@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AZ CINEMA</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#090711;color:#f7f4ff;font:18px/1.5 Arial,sans-serif}header{padding:34px 5vw 22px;background:radial-gradient(ellipse at 80% 0,#39205e 0,transparent 55%)}.brand{font-size:clamp(28px,4vw,52px);font-weight:900;letter-spacing:5px}.brand span{color:#b77aff}.tag{color:#c8bfd8;margin-top:4px}.wrap{padding:10px 5vw 50px}input{width:min(680px,100%);padding:17px 20px;border:1px solid #594477;border-radius:12px;background:#171222;color:white;font-size:18px;margin:10px 0 28px}h2{font-size:24px;margin:24px 0 12px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.tile{display:block;text-align:left;padding:20px;min-height:120px;border:1px solid #332544;border-radius:15px;background:linear-gradient(145deg,#1c1530,#100d18);color:white;text-decoration:none;transition:.15s}.tile strong{display:block;font-size:21px;margin-bottom:6px}.tile small{color:#c6b7d8}.tile:focus,input:focus{outline:4px solid #c084fc;outline-offset:3px}.tile:hover{border-color:#a855f7}.notice{color:#bdb1cc;font-size:14px;margin-top:30px;max-width:900px}.foot{border-top:1px solid #2a2038;padding:20px 5vw;color:#968ba6;font-size:13px}
+</style></head><body>
+<header><div class="brand">AZ <span>CINEMA</span></div><div class="tag">Your screen. Your zone.</div></header>
+<main class="wrap"><input id="search" type="search" placeholder="Search movies and shows…" aria-label="Search catalogue">
+<h2>Featured shows</h2><section class="grid" id="shows">
+<a class="tile" href="https://www.justwatch.com/ng/search?q=Family%20Guy"><strong>Family Guy</strong><small>Find authorised viewing options</small></a>
+<a class="tile" href="https://www.justwatch.com/ng/search?q=American%20Dad"><strong>American Dad!</strong><small>Find authorised viewing options</small></a>
+<a class="tile" href="https://www.justwatch.com/ng/search?q=The%20Simpsons"><strong>The Simpsons</strong><small>Find authorised viewing options</small></a>
+<a class="tile" href="https://www.justwatch.com/ng/search?q=Rick%20and%20Morty"><strong>Rick and Morty</strong><small>Find authorised viewing options</small></a>
+<a class="tile" href="https://www.justwatch.com/ng/search?q=Bob%27s%20Burgers"><strong>Bob's Burgers</strong><small>Find authorised viewing options</small></a>
+<a class="tile" href="https://www.justwatch.com/ng/search?q=South%20Park"><strong>South Park</strong><small>Find authorised viewing options</small></a>
+</section>
+<h2>Free movies</h2><section class="grid">
+<a class="tile" href="https://www.justwatch.com/ng"><strong>JustWatch Nigeria</strong><small>Browse legal streaming services and free titles</small></a>
+<a class="tile" href="https://www.youtube.com/movies"><strong>YouTube Movies</strong><small>Browse movies available on YouTube</small></a>
+<a class="tile" href="https://www.plex.tv/watch-free/"><strong>Plex</strong><small>Free ad-supported movies and TV</small></a>
+<a class="tile" href="https://tubitv.com/"><strong>Tubi</strong><small>Check regional availability</small></a>
+</section>
+<p class="notice">AZ CINEMA is a discovery app. It links to official services and does not host, unlock, or redistribute films or episodes. Availability depends on your country and each provider.</p></main>
+<footer class="foot">ANOTHER ZONE · DIAZ DIMENSION · 707</footer>
+<script>
+const search=document.getElementById('search');search.addEventListener('input',()=>{const q=search.value.toLowerCase();document.querySelectorAll('.tile').forEach(card=>{card.style.display=card.innerText.toLowerCase().includes(q)?'block':'none'})});
+document.addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement!==search){e.preventDefault();search.focus()}});
+</script></body></html>
