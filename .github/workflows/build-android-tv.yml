@@ -4,7 +4,7 @@ on:
     branches: [main]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
   actions: read
 jobs:
   build:
@@ -23,9 +23,17 @@ jobs:
           gradle-version: '8.9'
       - name: Build debug APK
         run: gradle assembleDebug
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: AZ-CINEMA-Android-TV-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - name: Publish public APK download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: az-cinema-latest
+          name: AZ CINEMA latest build
+          body: Automatically generated Android TV APK for AZ CINEMA.
+          files: app/build/outputs/apk/debug/app-debug.apk
+          make_latest: true
