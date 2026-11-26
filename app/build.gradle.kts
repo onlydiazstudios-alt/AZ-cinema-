@@ -9,8 +9,8 @@ android {
         applicationId = "com.anotherzone.azcinema"
         minSdk = 23
         targetSdk = 28
-        versionCode = 4
-        versionName = "1.3.0"
+        versionCode = 5
+        versionName = "1.4.0"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -21,9 +21,6 @@ android {
     }
 }
 dependencies {
-    implementation("androidx.media3:media3-exoplayer:1.5.1")
-    implementation("androidx.media3:media3-exoplayer-hls:1.5.1")
-    implementation("androidx.media3:media3-ui:1.5.1")
-    implementation("androidx.media3:media3-transformer:1.5.1")
+    implementation("org.videolan.android:libvlc-all:3.6.5")
     implementation("org.nanohttpd:nanohttpd:2.3.1")
 }
