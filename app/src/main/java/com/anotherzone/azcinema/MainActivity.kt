@@ -45,7 +45,8 @@ class MainActivity : Activity() {
             val arr = JSONArray()
             files.forEach { f ->
                 arr.put(JSONObject().put("name", f.name.substringAfter("_", f.name))
-                    .put("path", f.absolutePath).put("sizeLabel", readableSize(f.length())))
+                    .put("path", f.absolutePath).put("sizeLabel", readableSize(f.length()))
+                    .put("isMkv", f.extension.equals("mkv", true)))
             }
             return arr.toString()
         }
@@ -53,6 +54,16 @@ class MainActivity : Activity() {
         @JavascriptInterface fun playCategory(category: String, index: Int) {
             val files = libraryDir(category).listFiles()?.filter { it.isFile }?.sortedBy { it.name.lowercase() } ?: emptyList()
             if (files.isNotEmpty()) runOnUiThread { launchPlayer(files.map { it.absolutePath }.toTypedArray(), index.coerceIn(0, files.lastIndex), false) }
+        }
+        @JavascriptInterface fun convertFile(path: String) {
+            try {
+                val file = File(path).canonicalFile
+                val root = File(filesDir, "AZLibrary").canonicalFile
+                if (!file.path.startsWith(root.path + File.separator) || !file.isFile || !file.extension.equals("mkv", true)) return
+                runOnUiThread {
+                    startActivity(Intent(this@MainActivity, ConverterActivity::class.java).putExtra("path", file.absolutePath))
+                }
+            } catch (_: Exception) { }
         }
     }
 
