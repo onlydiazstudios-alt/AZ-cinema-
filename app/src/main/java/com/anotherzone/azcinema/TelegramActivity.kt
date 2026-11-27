@@ -1,11 +1,7 @@
 package com.anotherzone.azcinema
 
 import android.app.Activity
-import android.app.DownloadManager
-import android.content.Context
-import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import android.view.KeyEvent
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
@@ -17,6 +13,9 @@ import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
 import java.net.URLDecoder
+import java.net.URL
+import java.io.File
+import java.io.FileOutputStream
 
 class TelegramActivity : Activity() {
     private lateinit var web: WebView
@@ -35,23 +34,22 @@ class TelegramActivity : Activity() {
         }
         web.webChromeClient = WebChromeClient()
         web.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, _, _ ->
-            try {
-                val request = DownloadManager.Request(Uri.parse(url))
-                request.setTitle("Telegram download")
-                request.setDescription("Downloading from Telegram")
-                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                request.setAllowedOverMetered(true)
-                request.setAllowedOverRoaming(false)
-                request.addRequestHeader("User-Agent", userAgent ?: "Mozilla/5.0")
-                val cookie = CookieManager.getInstance().getCookie(url)
-                if (!cookie.isNullOrBlank()) request.addRequestHeader("Cookie", cookie)
-                request.setDestinationInExternalFilesDir(this, Environment.DIRECTORY_MOVIES, "AZLibrary/Movies/Telegram_" + java.lang.System.currentTimeMillis() + "_" + safeName(contentDisposition))
-                val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                manager.enqueue(request)
-                Toast.makeText(this, "Download started. Check Android notifications.", Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                Toast.makeText(this, "Could not start download: " + e.message, Toast.LENGTH_LONG).show()
-            }
+            Thread {
+                try {
+                    val connection = URL(url).openConnection()
+                    connection.setRequestProperty("User-Agent", userAgent ?: "Mozilla/5.0")
+                    val cookie = CookieManager.getInstance().getCookie(url)
+                    if (!cookie.isNullOrBlank()) connection.setRequestProperty("Cookie", cookie)
+                    connection.connect()
+                    val dir = File(filesDir, "AZLibrary/Movies").apply { mkdirs() }
+                    val name = "Telegram_" + java.lang.System.currentTimeMillis() + "_" + safeName(contentDisposition)
+                    val output = File(dir, name)
+                    connection.getInputStream().use { input -> FileOutputStream(output).use { stream -> input.copyTo(stream) } }
+                    runOnUiThread { Toast.makeText(this, "Saved to AZ CINEMA / Movies: " + output.name, Toast.LENGTH_LONG).show() }
+                } catch (e: Exception) {
+                    runOnUiThread { Toast.makeText(this, "Download failed: " + e.message, Toast.LENGTH_LONG).show() }
+                }
+            }.start()
         })
         val hint = TextView(this).apply {
             text = "TELEGRAM WEB  •  Scan the QR code with your phone"
