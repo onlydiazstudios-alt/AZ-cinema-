@@ -17,8 +17,8 @@ android {
         applicationId = "com.anotherzone.azcinema"
         minSdk = 23
         targetSdk = 28
-        versionCode = 9
-        versionName = "1.7.1"
+        versionCode = 10
+        versionName = "1.7.2"
     }
     if (signingReady) {
         signingConfigs {
