@@ -41,8 +41,15 @@ class TelegramActivity : Activity() {
                     val cookie = CookieManager.getInstance().getCookie(url)
                     if (!cookie.isNullOrBlank()) connection.setRequestProperty("Cookie", cookie)
                     connection.connect()
-                    val dir = File(filesDir, "AZLibrary/Movies").apply { mkdirs() }
-                    val name = "Telegram_" + java.lang.System.currentTimeMillis() + "_" + safeName(contentDisposition)
+                    val downloadedName = safeName(contentDisposition)
+                    val episode = Regex("(?i)^(.+?)[ ._-]+S(\\d{1,2})E(\\d{1,3})").find(downloadedName)
+                    val dir = if (episode != null) {
+                        val show = episode.groupValues[1].replace('_', ' ').replace('.', ' ').trim().ifBlank { "Telegram Shows" }
+                        val season = episode.groupValues[2].toIntOrNull() ?: 1
+                        File(filesDir, "AZLibrary/TV Shows/$show/Season $season")
+                    } else File(filesDir, "AZLibrary/Movies")
+                    dir.mkdirs()
+                    val name = downloadedName.ifBlank { "Telegram_" + java.lang.System.currentTimeMillis() + "_video" }
                     val output = File(dir, name)
                     connection.getInputStream().use { input -> FileOutputStream(output).use { stream -> input.copyTo(stream) } }
                     runOnUiThread { Toast.makeText(this, "Saved to AZ CINEMA / Movies: " + output.name, Toast.LENGTH_LONG).show() }
