@@ -52,7 +52,7 @@ class TelegramActivity : Activity() {
                     val name = downloadedName.ifBlank { "Telegram_" + java.lang.System.currentTimeMillis() + "_video" }
                     val output = File(dir, name)
                     connection.getInputStream().use { input -> FileOutputStream(output).use { stream -> input.copyTo(stream) } }
-                    runOnUiThread { Toast.makeText(this, "Saved to AZ CINEMA / Movies: " + output.name, Toast.LENGTH_LONG).show() }
+                    runOnUiThread { Toast.makeText(this, "Saved to AZ CINEMA: " + output.relativeTo(File(filesDir, "AZLibrary")).invariantSeparatorsPath, Toast.LENGTH_LONG).show() }
                 } catch (e: Exception) {
                     runOnUiThread { Toast.makeText(this, "Download failed: " + e.message, Toast.LENGTH_LONG).show() }
                 }
