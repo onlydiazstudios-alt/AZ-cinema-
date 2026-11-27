@@ -14,7 +14,6 @@ import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
-import android.widget.Toast
 import android.net.Uri
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
