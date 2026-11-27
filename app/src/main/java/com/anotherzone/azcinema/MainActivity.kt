@@ -40,20 +40,40 @@ class MainActivity : Activity() {
     inner class AZBridge {
         @JavascriptInterface fun getTransferUrl(): String = transferServer.transferUrl()
         @JavascriptInterface fun getVideosJson(category: String): String {
-            val dir = libraryDir(category)
-            val files = dir.listFiles()?.filter { it.isFile }?.sortedBy { it.name.lowercase() } ?: emptyList()
+            val files = allVideos(libraryDir(category))
             val arr = JSONArray()
             files.forEach { f ->
-                arr.put(JSONObject().put("name", f.name.substringAfter("_", f.name))
-                    .put("path", f.absolutePath).put("sizeLabel", readableSize(f.length()))
-                    .put("isMkv", f.extension.equals("mkv", true)))
+                val relative = f.relativeTo(libraryDir(category)).invariantSeparatorsPath
+                val parts = relative.split("/")
+                val show = if (category == "TV Shows" && parts.size >= 3) parts[0] else ""
+                val season = if (category == "TV Shows" && parts.size >= 3) parts[1] else ""
+                arr.put(JSONObject()
+                    .put("name", f.name.substringAfter("_", f.name))
+                    .put("path", f.absolutePath)
+                    .put("sizeLabel", readableSize(f.length()))
+                    .put("isMkv", f.extension.equals("mkv", true))
+                    .put("show", show)
+                    .put("season", season))
             }
             return arr.toString()
         }
         @JavascriptInterface fun playUrl(url: String) { runOnUiThread { launchPlayer(arrayOf(url), 0, true) } }
         @JavascriptInterface fun playCategory(category: String, index: Int) {
-            val files = libraryDir(category).listFiles()?.filter { it.isFile }?.sortedBy { it.name.lowercase() } ?: emptyList()
-            if (files.isNotEmpty()) runOnUiThread { launchPlayer(files.map { it.absolutePath }.toTypedArray(), index.coerceIn(0, files.lastIndex), false) }
+            val files = allVideos(libraryDir(category))
+            if (files.isNotEmpty()) runOnUiThread {
+                launchPlayer(files.map { it.absolutePath }.toTypedArray(), index.coerceIn(0, files.lastIndex), false)
+            }
+        }
+        @JavascriptInterface fun playFolder(show: String, season: String, index: Int) {
+            val base = libraryDir("TV Shows")
+            val safeShow = File(base, show).canonicalFile
+            val safeBase = base.canonicalFile
+            if (!safeShow.toPath().startsWith(safeBase.toPath())) return
+            val folder = File(safeShow, season)
+            val files = folder.listFiles()?.filter { it.isFile && isVideo(it) }?.sortedBy { it.name.lowercase() } ?: emptyList()
+            if (files.isNotEmpty()) runOnUiThread {
+                launchPlayer(files.map { it.absolutePath }.toTypedArray(), index.coerceIn(0, files.lastIndex), false)
+            }
         }
     }
 
@@ -61,6 +81,14 @@ class MainActivity : Activity() {
         val safe = if (category == "TV Shows") "TV Shows" else "Movies"
         return File(filesDir, "AZLibrary/$safe").apply { mkdirs() }
     }
+
+    private fun allVideos(dir: File): List<File> =
+        (dir.listFiles()?.toList() ?: emptyList()).flatMap { f ->
+            if (f.isDirectory) allVideos(f) else if (isVideo(f)) listOf(f) else emptyList()
+        }.sortedBy { it.absolutePath.lowercase() }
+
+    private fun isVideo(file: File): Boolean =
+        file.extension.lowercase() in setOf("mkv", "mp4", "m4v", "avi", "mov", "webm", "ts", "mpg", "mpeg")
 
     private fun launchPlayer(items: Array<String>, index: Int, isUrl: Boolean) {
         startActivity(Intent(this, PlayerActivity::class.java).apply {
