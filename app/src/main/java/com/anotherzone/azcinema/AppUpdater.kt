@@ -109,7 +109,8 @@ class AppUpdater(private val activity: Activity) {
     private fun install(apk: File) {
         if (Build.VERSION.SDK_INT >= 26 && !activity.packageManager.canRequestPackageInstalls()) {
             Toast.makeText(activity, "Allow AZ CINEMA to install updates, return here, then press CHECK FOR UPDATES again.", Toast.LENGTH_LONG).show()
-            activity.getSharedPreferences("azcinema_updates", Activity.MODE_PRIVATE).edit().putBoolean("awaiting_install_permission", true).apply()\n            activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}")))
+            activity.getSharedPreferences("azcinema_updates", Activity.MODE_PRIVATE).edit().putBoolean("awaiting_install_permission", true).apply()
+            activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}")))
             return
         }
         var sessionId = -1
