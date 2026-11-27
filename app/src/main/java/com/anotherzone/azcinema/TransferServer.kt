@@ -39,7 +39,7 @@ class TransferServer(private val context: Context) : NanoHTTPD("0.0.0.0", 8765) 
             val tvMatch = Regex("(?i)^(.+?)[ ._-]+S(\\d{1,2})E(\\d{1,3})").find(cleanName)
             val destinationFolder = if (category == "TV Shows" && tvMatch != null) {
                 val showName = tvMatch.groupValues[1].replace(Regex("[._]+"), " ").trim().take(70).ifBlank { "TV Show" }
-                val seasonName = "Season " + tvMatch.groupValues[2].padStart(2, '0')
+                val seasonName = "Season " + tvMatch.groupValues[2].toInt()
                 File(File(folder("TV Shows"), showName), seasonName).apply { mkdirs() }
             } else folder(category)
             val destination = File(destinationFolder, "${System.currentTimeMillis()}_$cleanName")
