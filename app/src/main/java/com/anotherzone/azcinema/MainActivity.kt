@@ -108,13 +108,14 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         val prefs = getSharedPreferences("azcinema_updates", MODE_PRIVATE)
-        if (prefs.getBoolean("awaiting_install_permission", false)) {
-            prefs.edit().putBoolean("awaiting_install_permission", false).apply()
-            if (android.os.Build.VERSION.SDK_INT < 26 || packageManager.canRequestPackageInstalls()) {
-                android.widget.Toast.makeText(this, "Install permission enabled. AZ CINEMA can now check for and install updates. Choose CHECK FOR UPDATES.", android.widget.Toast.LENGTH_LONG).show()
-            } else {
-                android.widget.Toast.makeText(this, "Install permission is still off. Enable it in Android settings, then return to AZ CINEMA.", android.widget.Toast.LENGTH_LONG).show()
-            }
+        val allowed = android.os.Build.VERSION.SDK_INT < 26 || packageManager.canRequestPackageInstalls()
+        val returningFromSettings = prefs.getBoolean("awaiting_install_permission", false)
+        if (returningFromSettings) prefs.edit().putBoolean("awaiting_install_permission", false).apply()
+        if (allowed && (returningFromSettings || !prefs.getBoolean("install_permission_notice_shown", false))) {
+            prefs.edit().putBoolean("install_permission_notice_shown", true).apply()
+            android.widget.Toast.makeText(this, "Install permission is enabled. AZ CINEMA can now check for and install GitHub updates. Choose CHECK FOR UPDATES.", android.widget.Toast.LENGTH_LONG).show()
+        } else if (returningFromSettings && !allowed) {
+            android.widget.Toast.makeText(this, "Install permission is still off. Enable it in Android settings, then return to AZ CINEMA.", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 
