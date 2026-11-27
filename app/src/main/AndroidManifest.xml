@@ -9,6 +9,7 @@
         android:label="AZ CINEMA"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="true">
+        <activity android:name=".TelegramActivity" android:exported="false" android:configChanges="keyboard|keyboardHidden|orientation|screenSize" />
         <activity android:name=".PlayerActivity" android:exported="false" android:screenOrientation="landscape" />
         <activity
             android:name=".MainActivity"
