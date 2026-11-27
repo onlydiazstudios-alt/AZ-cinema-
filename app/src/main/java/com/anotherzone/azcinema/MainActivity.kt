@@ -105,6 +105,19 @@ class MainActivity : Activity() {
         return if (mb >= 1024) String.format("%.1f GB", mb / 1024) else String.format("%.0f MB", mb)
     }
 
+    override fun onResume() {
+        super.onResume()
+        val prefs = getSharedPreferences("azcinema_updates", MODE_PRIVATE)
+        if (prefs.getBoolean("awaiting_install_permission", false)) {
+            prefs.edit().putBoolean("awaiting_install_permission", false).apply()
+            if (android.os.Build.VERSION.SDK_INT < 26 || packageManager.canRequestPackageInstalls()) {
+                android.widget.Toast.makeText(this, "Install permission enabled. AZ CINEMA can now check for and install updates. Choose CHECK FOR UPDATES.", android.widget.Toast.LENGTH_LONG).show()
+            } else {
+                android.widget.Toast.makeText(this, "Install permission is still off. Enable it in Android settings, then return to AZ CINEMA.", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     override fun onDestroy() {
         try { transferServer.stop() } catch (_: Exception) { }
         web.destroy()
