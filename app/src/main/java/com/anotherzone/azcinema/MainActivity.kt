@@ -68,9 +68,9 @@ class MainActivity : Activity() {
             val base = libraryDir("TV Shows")
             val safeShow = File(base, show).canonicalFile
             val safeBase = base.canonicalFile
-            if (!safeShow.toPath().startsWith(safeBase.toPath())) return
+            if (safeShow.canonicalPath != safeBase.canonicalPath && !safeShow.canonicalPath.startsWith(safeBase.canonicalPath + File.separator)) return
             val folder = File(safeShow, season)
-            val files = folder.listFiles()?.filter { it.isFile && isVideo(it) }?.sortedBy { it.name.lowercase() } ?: emptyList()
+            val files = folder.listFiles()?.filter { it.isFile && isVideo(it) }?.sortedBy { it.name.substringAfter("_").lowercase() } ?: emptyList()
             if (files.isNotEmpty()) runOnUiThread {
                 launchPlayer(files.map { it.absolutePath }.toTypedArray(), index.coerceIn(0, files.lastIndex), false)
             }
@@ -85,7 +85,7 @@ class MainActivity : Activity() {
     private fun allVideos(dir: File): List<File> =
         (dir.listFiles()?.toList() ?: emptyList()).flatMap { f ->
             if (f.isDirectory) allVideos(f) else if (isVideo(f)) listOf(f) else emptyList()
-        }.sortedBy { it.absolutePath.lowercase() }
+        }.sortedBy { it.name.substringAfter("_").lowercase() }
 
     private fun isVideo(file: File): Boolean =
         file.extension.lowercase() in setOf("mkv", "mp4", "m4v", "avi", "mov", "webm", "ts", "mpg", "mpeg")
