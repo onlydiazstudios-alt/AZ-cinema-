@@ -39,6 +39,7 @@ class MainActivity : Activity() {
 
     inner class AZBridge {
         @JavascriptInterface fun getTransferUrl(): String = transferServer.transferUrl()
+        @JavascriptInterface fun openTelegram() { runOnUiThread { startActivity(Intent(this@MainActivity, TelegramActivity::class.java)) } }
         @JavascriptInterface fun getVideosJson(category: String): String {
             val files = allVideos(libraryDir(category))
             val arr = JSONArray()
