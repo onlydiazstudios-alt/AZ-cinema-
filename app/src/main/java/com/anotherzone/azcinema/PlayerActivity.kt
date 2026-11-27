@@ -13,7 +13,6 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
-import android.widget.Toast
 import android.net.Uri
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
@@ -142,7 +141,7 @@ class PlayerActivity : Activity() {
                         MediaPlayer.Event.Playing, MediaPlayer.Event.Paused -> runOnUiThread { playButton.text = if (mp.isPlaying) "Ⅱ" else "▶" }
                         MediaPlayer.Event.EncounteredError -> runOnUiThread {
                             playButton.text = "▶"
-                            Toast.makeText(this@PlayerActivity, "AZ CINEMA could not decode this video. Try another file or check the file is complete.", Toast.LENGTH_LONG).show()
+                            android.widget.Toast.makeText(this@PlayerActivity, "AZ CINEMA could not decode this video. Try another file or check the file is complete.", android.widget.Toast.LENGTH_LONG).show()
                         }
                     }
                 }
