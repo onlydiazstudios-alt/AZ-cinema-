@@ -12,7 +12,9 @@ import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.SeekBar
-import android.widget.TextView\nimport android.widget.Toast
+import android.widget.TextView
+import android.widget.Toast
+import android.widget.Toast
 import android.net.Uri
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
@@ -138,7 +140,11 @@ class PlayerActivity : Activity() {
                 override fun onEvent(event: MediaPlayer.Event) {
                     when (event.type) {
                         MediaPlayer.Event.EndReached -> runOnUiThread { if (index < items.lastIndex) playAt(index + 1) }
-                        MediaPlayer.Event.Playing, MediaPlayer.Event.Paused -> runOnUiThread { playButton.text = if (mp.isPlaying) "Ⅱ" else "▶" }\n                        MediaPlayer.Event.EncounteredError -> runOnUiThread {\n                            playButton.text = "▶"\n                            Toast.makeText(this@PlayerActivity, "AZ CINEMA could not decode this video. Try another file or check the file is complete.", Toast.LENGTH_LONG).show()\n                        }
+                        MediaPlayer.Event.Playing, MediaPlayer.Event.Paused -> runOnUiThread { playButton.text = if (mp.isPlaying) "Ⅱ" else "▶" }
+                        MediaPlayer.Event.EncounteredError -> runOnUiThread {
+                            playButton.text = "▶"
+                            Toast.makeText(this@PlayerActivity, "AZ CINEMA could not decode this video. Try another file or check the file is complete.", Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
             })
@@ -191,7 +197,12 @@ class PlayerActivity : Activity() {
         val raw = items[index].substringAfterLast('/').substringAfterLast('\\')
         title.text = raw.substringAfter("_", raw).replace('_', ' ').replace('.', ' ')
         val uri = if (isUrl) Uri.parse(items[index]) else Uri.fromFile(File(items[index]))
-        val media = Media(libVlc, uri)
+        player?.stop()
+        val media = Media(libVlc, uri).apply {
+            addOption(":avcodec-hw=any")
+            addOption(if (isUrl) ":network-caching=5000" else ":file-caching=2000")
+            addOption(":no-video-title-show")
+        }
         player?.media = media
         media.release()
         player?.play()
