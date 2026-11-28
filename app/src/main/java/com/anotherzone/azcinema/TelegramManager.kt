@@ -222,9 +222,10 @@ class TelegramManager private constructor(context: Context) {
         require(ready) { "Connect Telegram first" }
         val response = request("GetChatHistory", mapOf(
             "chatId" to chatId,
-            "fromMessageId" to fromMessageId.toInt(),
+            "fromMessageId" to fromMessageId,
             "offset" to 0,
-            "limit" to 100
+            "limit" to 100,
+            "onlyLocal" to false
         ))
         val messages = field(response, "messages") as? Array<*> ?: emptyArray<Any>()
         val list = JSONArray()
