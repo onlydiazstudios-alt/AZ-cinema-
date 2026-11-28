@@ -10,6 +10,7 @@ import java.util.UUID
 
 class TransferServer(private val context: Context) : NanoHTTPD("0.0.0.0", 8765) {
     private val token = UUID.randomUUID().toString()
+    private val telegram = TelegramManager.get(context)
     private fun root(): File = File(context.filesDir, "AZLibrary")
     private fun folder(category: String): File = File(root(), if (category == "TV Shows") "TV Shows" else "Movies").apply { mkdirs() }
     fun transferUrl(): String = "http://${MainActivity.localIp()}:8765/companion?token=$token"
@@ -21,11 +22,27 @@ class TransferServer(private val context: Context) : NanoHTTPD("0.0.0.0", 8765) 
             session.method == Method.GET && (session.uri == "/" || session.uri == "/index.html" || session.uri == "/companion") ->
                 newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", companionPage())
             session.method == Method.POST && session.uri == "/upload" -> receive(session)
+            session.method == Method.GET && session.uri == "/telegram/status" -> json(telegram.statusJson())
+            session.method == Method.GET && session.uri == "/telegram/chats" -> json(telegram.chatsJson())
+            session.method == Method.GET && session.uri == "/telegram/messages" -> {
+                val chatId = session.parameters["chat_id"]?.firstOrNull()?.toLongOrNull() ?: 0L
+                val fromId = session.parameters["from_message_id"]?.firstOrNull()?.toLongOrNull() ?: 0L
+                if (chatId == 0L) newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_PLAINTEXT, "Missing chat_id")
+                else try { json(telegram.messagesJson(chatId, fromId)) } catch (e: Exception) { newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, e.message ?: "Telegram error") }
+            }
+            session.method == Method.GET && session.uri == "/telegram/download" -> {
+                val fileId = session.parameters["file_id"]?.firstOrNull()?.toIntOrNull() ?: 0
+                val name = session.parameters["name"]?.firstOrNull() ?: "telegram-video.mp4"
+                try { json(JSONObject().put("ok", true).put("status", telegram.enqueueDownload(fileId, name)).toString()) }
+                catch (e: Exception) { newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_PLAINTEXT, e.message ?: "Download could not start") }
+            }
             session.method == Method.GET && session.uri == "/health" ->
                 newFixedLengthResponse(Response.Status.OK, "application/json", JSONObject().put("ok", true).put("app", "AZ CINEMA").toString())
             else -> newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Not found")
         }
     }
+
+    private fun json(body: String): Response = newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", body)
 
     private fun receive(session: IHTTPSession): Response {
         return try {
@@ -78,11 +95,14 @@ footer{color:#887d96;text-align:center;font-size:12px;padding:22px}
 <div class="status"><span class="dot"></span> Connected to your AZ CINEMA TV</div>
 <h1>Your downloads.<br>Your cinema.</h1><p class="muted">Choose videos on your iPhone and send them directly to the TV. The TV keeps its own copy and sorts episode files automatically.</p>
 <section class="panel">
-<div class="kicker">01 · TELEGRAM</div><h2>Telegram sources</h2>
-<p class="muted">Telegram account login and direct channel/bot browsing are not enabled in this build. This screen is reserved for the secure Telegram account integration; it will not ask you to share your Telegram password with an unofficial page.</p>
-<div class="source"><div><strong>Permanent Channels</strong><small>Saved sources will appear here</small></div><span class="pill">Not connected</span></div>
-<div class="source"><div><strong>Bots</strong><small>Saved download bots will appear here</small></div><span class="pill">Not connected</span></div>
-<button class="secondary" disabled>CONNECT TELEGRAM · COMING NEXT</button>
+<div class="kicker">01 · TELEGRAM ACCOUNT</div><h2>Your chats, channels and bots</h2>
+<div id="tgStatus" class="muted">Checking the Telegram connection…</div>
+<p class="muted">If the TV is not connected, use Telegram on your iPhone: Settings → Devices → Link Desktop Device, then scan the Telegram QR shown on the TV screen. Do not send your login code or password to anyone.</p>
+<button class="secondary" onclick="loadTelegram()">REFRESH TELEGRAM</button>
+<div id="tgChats" class="queue"><div class="muted">Your Telegram chats will appear here after login.</div></div>
+<div id="tgMessages" class="queue"></div>
+<button id="tgDownload" onclick="downloadTelegramSelected()" disabled>DOWNLOAD SELECTED TO TV</button>
+<div id="tgQueue" class="queue"></div>
 </section>
 <section class="panel">
 <div class="kicker">02 · CHOOSE DOWNLOADS</div><h2>Select videos from your iPhone</h2>
@@ -107,6 +127,17 @@ picker.addEventListener('change',()=>{selected=[...picker.files];document.getEle
 function addQueue(name,status,percent){const el=document.createElement('div');el.className='item';const label=document.createElement('div');label.textContent=name+' — '+status;const track=document.createElement('div');track.className='track';const fill=document.createElement('div');fill.className='fill';fill.style.width=percent+'%';track.append(fill);el.append(label,track);document.getElementById('queue').append(el);return {label,fill};}
 function sendOne(file){return new Promise((resolve,reject)=>{const ui=addQueue(file.name,'Waiting',0);const xhr=new XMLHttpRequest();xhr.open('POST','/upload?token='+encodeURIComponent(token));xhr.upload.onprogress=e=>{if(e.lengthComputable){const p=Math.round(e.loaded/e.total*100);ui.label.textContent=file.name+' — Uploading '+p+'%';ui.fill.style.width=p+'%';}};xhr.onload=()=>{if(xhr.status>=200&&xhr.status<300){ui.label.textContent=file.name+' — Saved on TV';ui.fill.style.width='100%';resolve();}else{ui.label.textContent=file.name+' — Failed: '+xhr.responseText;reject(new Error(xhr.responseText||'Upload failed'));}};xhr.onerror=()=>{ui.label.textContent=file.name+' — Network error';reject(new Error('Network error'));};const form=new FormData();form.append('file',file);form.append('name',file.name);xhr.send(form);});}
 async function sendFiles(){if(!token){alert('Pairing token is missing. Reopen the TV pairing link.');return;}sendButton.disabled=true;let completed=0;for(const f of selected){try{await sendOne(f);completed++;}catch(e){alert('Transfer stopped after '+completed+' file(s). '+e.message);sendButton.disabled=false;return;}}document.getElementById('selected').textContent='Finished: '+completed+' video(s) saved on your TV.';picker.value='';selected=[];sendButton.disabled=true;}
+const tgSelected=new Map();
+async function tgFetch(path){const response=await fetch(path+(path.includes('?')?'&':'?')+'token='+encodeURIComponent(token));const body=await response.text();if(!response.ok)throw new Error(body||'Telegram request failed');return JSON.parse(body);}
+function tgEsc(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+async function loadTelegram(){const statusBox=document.getElementById('tgStatus');statusBox.textContent='Checking Telegram…';try{const s=await tgFetch('/telegram/status');statusBox.textContent=s.connected?'✓ '+s.state:(s.state||'Telegram is not connected')+(s.error?' · '+s.error:'');if(s.connected){await loadTelegramChats();}else{document.getElementById('tgChats').innerHTML='<div class="muted">Complete QR login on the TV, then tap Refresh Telegram.</div>';document.getElementById('tgMessages').innerHTML='';}renderTgQueue(s.downloads||[]);}catch(e){statusBox.textContent='Telegram unavailable: '+e.message;}}
+async function loadTelegramChats(){const chats=await tgFetch('/telegram/chats');const box=document.getElementById('tgChats');if(!chats.length){box.innerHTML='<div class="muted">No chats found yet.</div>';return;}box.innerHTML=chats.map(ch=>'<div class="source"><div><strong>'+tgEsc(ch.title||'Telegram chat')+'</strong><small>'+tgEsc(ch.type||'Chat')+'</small></div><button class="secondary" onclick="loadTelegramMessages('+Number(ch.id)+',\''+tgEsc(ch.title||'').replace(/'/g,'&#39;')+'\')">OPEN</button></div>').join('');}
+async function loadTelegramMessages(chatId,title){const box=document.getElementById('tgMessages');box.innerHTML='<div class="muted">Loading videos from '+tgEsc(title)+'…</div>';try{const items=await tgFetch('/telegram/messages?chat_id='+encodeURIComponent(chatId));if(!items.length){box.innerHTML='<div class="muted">No recent video or video-file messages found in this chat.</div>';return;}box.innerHTML='<h2>'+tgEsc(title)+'</h2>'+items.map(x=>'<label class="source"><span><input type="checkbox" data-file-id="'+Number(x.fileId)+'" data-name="'+tgEsc(x.name)+'" style="display:inline;width:auto;margin-right:8px" onchange="toggleTgFile(this)"><strong>'+tgEsc(x.name)+'</strong><small>'+((Number(x.size)||0)/1048576).toFixed(1)+' MB</small></span><span class="pill">VIDEO</span></label>').join('');}catch(e){box.innerHTML='<div class="muted">Could not load messages: '+tgEsc(e.message)+'</div>';}}
+function toggleTgFile(input){const id=Number(input.dataset.fileId);if(input.checked)tgSelected.set(id,input.dataset.name);else tgSelected.delete(id);document.getElementById('tgDownload').disabled=tgSelected.size===0;}
+async function downloadTelegramSelected(){const btn=document.getElementById('tgDownload');btn.disabled=true;for(const [id,name] of tgSelected){try{await tgFetch('/telegram/download?file_id='+id+'&name='+encodeURIComponent(name));}catch(e){alert('Could not queue '+name+': '+e.message);}}tgSelected.clear();document.querySelectorAll('#tgMessages input[type=checkbox]').forEach(x=>x.checked=false);await loadTelegram();btn.disabled=true;}
+function renderTgQueue(items){const box=document.getElementById('tgQueue');box.innerHTML=items.length?'<h2>TV download queue</h2>'+items.map(x=>'<div class="item">File '+x.fileId+' — '+tgEsc(x.status)+'</div>').join(''):'<div class="muted">No Telegram downloads queued.</div>';}
+setInterval(()=>{if(token)loadTelegram();},7000);
+
 </script></body></html>
 """.trimIndent()
 }
