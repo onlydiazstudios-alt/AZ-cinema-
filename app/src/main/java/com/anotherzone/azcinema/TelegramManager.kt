@@ -14,6 +14,7 @@ import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
@@ -30,6 +31,7 @@ class TelegramManager private constructor(context: Context) {
     @Volatile private var qrLink = ""
     @Volatile private var ready = false
     @Volatile private var lastError = ""
+    private val earlyUpdates = ConcurrentLinkedQueue<TdApi.Object>()
 
     @Synchronized
     fun start() {
@@ -39,8 +41,11 @@ class TelegramManager private constructor(context: Context) {
             return
         }
         try {
-            val created = Client.create(Client.ResultHandler { update -> handleUpdate(update) }, null, null)
+            val created = Client.create(Client.ResultHandler { update ->
+                if (client == null) earlyUpdates.add(update) else handleUpdate(update)
+            }, null, null)
             client = created
+            while (true) { val pending = earlyUpdates.poll() ?: break; handleUpdate(pending) }
             state = "Connecting to Telegram…"
         } catch (e: Exception) {
             state = "Telegram could not start"
@@ -189,7 +194,8 @@ class TelegramManager private constructor(context: Context) {
 
     fun chatsJson(): String {
         if (!ready) return JSONArray().toString()
-        val response = request("SearchChats", mapOf("query" to "", "limit" to 100))
+        val chatList = Class.forName("org.drinkless.tdlib.TdApi\\$ChatListMain").getDeclaredConstructor().newInstance()
+        val response = request("GetChats", mapOf("chatList" to chatList, "limit" to 100))
         val ids = field(response, "chatIds")
         val list = JSONArray()
         val values: List<Long> = when (ids) {
