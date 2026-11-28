@@ -24,9 +24,12 @@ import java.util.Collections
 class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var transferServer: TransferServer
+    private lateinit var telegramManager: TelegramManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        telegramManager = TelegramManager.get(this)
+        telegramManager.start()
         transferServer = TransferServer(this)
         try { transferServer.start() } catch (e: Exception) {
             android.widget.Toast.makeText(this, "Phone transfer server could not start: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
@@ -49,6 +52,8 @@ class MainActivity : Activity() {
     inner class AZBridge {
         @JavascriptInterface fun getTransferUrl(): String = transferServer.transferUrl()
         @JavascriptInterface fun getTransferQrDataUrl(): String = createQrDataUrl(transferServer.transferUrl())
+        @JavascriptInterface fun getTelegramStatusJson(): String = telegramManager.statusJson()
+        @JavascriptInterface fun getTelegramQrDataUrl(): String = telegramManager.currentQrLink().takeIf { it.isNotBlank() }?.let { createQrDataUrl(it) }.orEmpty()
         @JavascriptInterface fun openTelegram() {
             runOnUiThread { startActivity(Intent(this@MainActivity, TelegramActivity::class.java)) }
         }
