@@ -9,9 +9,14 @@ val ciBuildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 11
 val appVersionCode = 10000 + ciBuildNumber
 
 android {
+    buildFeatures { buildConfig = true }
     namespace = "com.anotherzone.azcinema"
     compileSdk = 36
+    val telegramApiId = System.getenv("TELEGRAM_API_ID")?.toIntOrNull() ?: 0
+    val telegramApiHash = System.getenv("TELEGRAM_API_HASH").orEmpty().replace("\\", "\\\\").replace("\"", "\\\"")
     defaultConfig {
+        buildConfigField("int", "TELEGRAM_API_ID", telegramApiId.toString())
+        buildConfigField("String", "TELEGRAM_API_HASH", "\"$telegramApiHash\"")
         applicationId = "com.anotherzone.azcinema"
         minSdk = 23
         targetSdk = 28
