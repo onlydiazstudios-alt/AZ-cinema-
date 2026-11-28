@@ -10,7 +10,7 @@ val appVersionCode = 10000 + ciBuildNumber
 
 android {
     namespace = "com.anotherzone.azcinema"
-    compileSdk = 35
+    compileSdk = 36
     defaultConfig {
         applicationId = "com.anotherzone.azcinema"
         minSdk = 23
