@@ -59,5 +59,4 @@ dependencies {
     implementation("org.videolan.android:libvlc-all:3.6.5")
     implementation("org.nanohttpd:nanohttpd:2.3.1")
     implementation("io.github.tdlib-android:core:0.1.3")
-    implementation("io.github.tdlib-android:ktx:0.1.3")
 }
