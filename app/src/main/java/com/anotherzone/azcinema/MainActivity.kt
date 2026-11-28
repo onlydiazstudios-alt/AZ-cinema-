@@ -21,7 +21,9 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         transferServer = TransferServer(this)
-        try { transferServer.start() } catch (_: Exception) { }
+        try { transferServer.start() } catch (e: Exception) {
+            android.widget.Toast.makeText(this, "Phone transfer server could not start: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+        }
         web = WebView(this)
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
@@ -39,13 +41,18 @@ class MainActivity : Activity() {
 
     inner class AZBridge {
         @JavascriptInterface fun getTransferUrl(): String = transferServer.transferUrl()
-        @JavascriptInterface fun openTelegram() { runOnUiThread { startActivity(Intent(this@MainActivity, TelegramActivity::class.java)) } }
-        @JavascriptInterface fun updateApp() { runOnUiThread { AppUpdater(this@MainActivity).checkAndInstall() } }
+        @JavascriptInterface fun openTelegram() {
+            runOnUiThread { startActivity(Intent(this@MainActivity, TelegramActivity::class.java)) }
+        }
+        @JavascriptInterface fun updateApp() {
+            runOnUiThread { AppUpdater(this@MainActivity).checkAndInstall() }
+        }
         @JavascriptInterface fun getVideosJson(category: String): String {
-            val files = allVideos(libraryDir(category))
+            val dir = libraryDir(category)
+            val files = allVideos(dir)
             val arr = JSONArray()
             files.forEach { f ->
-                val relative = f.relativeTo(libraryDir(category)).invariantSeparatorsPath
+                val relative = f.relativeTo(dir).invariantSeparatorsPath
                 val parts = relative.split("/")
                 val show = if (category == "TV Shows" && parts.size >= 3) parts[0] else ""
                 val season = if (category == "TV Shows" && parts.size >= 3) parts[1] else ""
@@ -59,7 +66,10 @@ class MainActivity : Activity() {
             }
             return arr.toString()
         }
-        @JavascriptInterface fun playUrl(url: String) { runOnUiThread { launchPlayer(arrayOf(url), 0, true) } }
+        @JavascriptInterface fun playUrl(url: String) {
+            if (!url.startsWith("https://", true) && !url.startsWith("http://", true)) return
+            runOnUiThread { launchPlayer(arrayOf(url), 0, true) }
+        }
         @JavascriptInterface fun playCategory(category: String, index: Int) {
             val files = allVideos(libraryDir(category))
             if (files.isNotEmpty()) runOnUiThread {
@@ -67,15 +77,40 @@ class MainActivity : Activity() {
             }
         }
         @JavascriptInterface fun playFolder(show: String, season: String, index: Int) {
-            val base = libraryDir("TV Shows")
-            val safeShow = File(base, show).canonicalFile
-            val safeBase = base.canonicalFile
-            if (safeShow.canonicalPath != safeBase.canonicalPath && !safeShow.canonicalPath.startsWith(safeBase.canonicalPath + File.separator)) return
-            val folder = File(safeShow, season)
-            val files = folder.listFiles()?.filter { it.isFile && isVideo(it) }?.sortedBy { it.name.substringAfter("_").lowercase() } ?: emptyList()
-            if (files.isNotEmpty()) runOnUiThread {
-                launchPlayer(files.map { it.absolutePath }.toTypedArray(), index.coerceIn(0, files.lastIndex), false)
-            }
+            try {
+                val base = libraryDir("TV Shows").canonicalFile
+                val safeShow = File(base, show).canonicalFile
+                if (!safeShow.canonicalPath.startsWith(base.canonicalPath + File.separator)) return
+                val safeSeason = File(safeShow, season).canonicalFile
+                if (!safeSeason.canonicalPath.startsWith(safeShow.canonicalPath + File.separator)) return
+                val files = safeSeason.listFiles()?.filter { it.isFile && isVideo(it) }
+                    ?.sortedBy { it.name.substringAfter("_").lowercase() } ?: emptyList()
+                if (files.isNotEmpty()) runOnUiThread {
+                    launchPlayer(files.map { it.absolutePath }.toTypedArray(), index.coerceIn(0, files.lastIndex), false)
+                }
+            } catch (_: Exception) { }
+        }
+        @JavascriptInterface fun deleteVideo(path: String): Boolean {
+            return try {
+                val root = File(filesDir, "AZLibrary").canonicalFile
+                val target = File(path).canonicalFile
+                target.isFile &&
+                    target.canonicalPath.startsWith(root.canonicalPath + File.separator) &&
+                    target.delete()
+            } catch (_: Exception) { false }
+        }
+        @JavascriptInterface fun deleteFolder(show: String, season: String): Boolean {
+            return try {
+                val base = libraryDir("TV Shows").canonicalFile
+                val showDir = File(base, show).canonicalFile
+                if (!showDir.canonicalPath.startsWith(base.canonicalPath + File.separator)) return false
+                val target = if (season.isBlank()) showDir else File(showDir, season).canonicalFile
+                if (season.isNotBlank() && !target.canonicalPath.startsWith(showDir.canonicalPath + File.separator)) return false
+                if (!target.isDirectory) return false
+                val deleted = target.deleteRecursively()
+                if (season.isNotBlank() && showDir.exists() && showDir.listFiles().isNullOrEmpty()) showDir.delete()
+                deleted
+            } catch (_: Exception) { false }
         }
     }
 
@@ -113,7 +148,7 @@ class MainActivity : Activity() {
         if (returningFromSettings) prefs.edit().putBoolean("awaiting_install_permission", false).apply()
         if (allowed && (returningFromSettings || !prefs.getBoolean("install_permission_notice_shown", false))) {
             prefs.edit().putBoolean("install_permission_notice_shown", true).apply()
-            android.widget.Toast.makeText(this, "Install permission is enabled. AZ CINEMA can now check for and install GitHub updates. Choose CHECK FOR UPDATES.", android.widget.Toast.LENGTH_LONG).show()
+            android.widget.Toast.makeText(this, "Install permission is enabled. AZ CINEMA can check for and install GitHub updates. Choose CHECK FOR UPDATES.", android.widget.Toast.LENGTH_LONG).show()
         } else if (returningFromSettings && !allowed) {
             android.widget.Toast.makeText(this, "Install permission is still off. Enable it in Android settings, then return to AZ CINEMA.", android.widget.Toast.LENGTH_LONG).show()
         }
