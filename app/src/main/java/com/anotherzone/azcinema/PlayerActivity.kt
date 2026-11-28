@@ -1,6 +1,7 @@
 package com.anotherzone.azcinema
 
 import android.app.Activity
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -13,7 +14,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
-import android.net.Uri
+import android.widget.Toast
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
@@ -34,7 +35,9 @@ class PlayerActivity : Activity() {
     private var index = 0
     private var isUrl = false
     private var seeking = false
+    @Volatile private var softwareFallbackTried = false
     private val handler = Handler(Looper.getMainLooper())
+
     private val progressTask = object : Runnable {
         override fun run() {
             val p = player
@@ -58,7 +61,11 @@ class PlayerActivity : Activity() {
         items = intent.getStringArrayListExtra("items") ?: arrayListOf()
         index = intent.getIntExtra("index", 0).coerceAtLeast(0)
         isUrl = intent.getBooleanExtra("isUrl", false)
-        if (items.isEmpty()) { finish(); return }
+        if (items.isEmpty()) {
+            Toast.makeText(this, "No video was selected.", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
 
         val root = FrameLayout(this).apply { setBackgroundColor(0xFF000000.toInt()) }
         videoLayout = VLCVideoLayout(this)
@@ -74,21 +81,28 @@ class PlayerActivity : Activity() {
             )
         }
         title = TextView(this).apply {
-            setTextColor(0xFFFFFFFF.toInt()); textSize = 21f; maxLines = 1
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 21f
+            maxLines = 1
             setShadowLayer(5f, 1f, 1f, 0xFF000000.toInt())
         }
         val subtitle = TextView(this).apply {
-            text = "AZ CINEMA"; setTextColor(0xFFCEB5F2.toInt()); textSize = 12f
+            text = "AZ CINEMA"
+            setTextColor(0xFFCEB5F2.toInt())
+            textSize = 12f
         }
         val top = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        top.addView(title); top.addView(subtitle)
+        top.addView(title)
+        top.addView(subtitle)
         overlay.addView(top)
 
         val spacer = View(this)
         overlay.addView(spacer, LinearLayout.LayoutParams(1, 0, 1f))
         val center = FrameLayout(this)
         playButton = Button(this).apply {
-            text = "▶"; textSize = 30f; isAllCaps = false
+            text = "▶"
+            textSize = 30f
+            isAllCaps = false
             setTextColor(0xFFFFFFFF.toInt())
             background = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.OVAL
@@ -100,16 +114,30 @@ class PlayerActivity : Activity() {
         center.addView(playButton, FrameLayout.LayoutParams(76, 76, Gravity.CENTER))
         overlay.addView(center, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        val timeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        elapsed = TextView(this).apply { setTextColor(0xFFFFFFFF.toInt()); textSize = 13f; text = "00:00" }
-        duration = TextView(this).apply { setTextColor(0xFFD7D0DF.toInt()); textSize = 13f; text = "00:00" }
+        val timeRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        elapsed = TextView(this).apply {
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 13f
+            text = "00:00"
+        }
+        duration = TextView(this).apply {
+            setTextColor(0xFFD7D0DF.toInt())
+            textSize = 13f
+            text = "00:00"
+        }
         seekBar = SeekBar(this).apply {
             max = 1000
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onStartTrackingTouch(seekBar: SeekBar?) { seeking = true; showControls() }
+                override fun onStartTrackingTouch(bar: SeekBar?) {
+                    seeking = true
+                    showControls()
+                }
                 override fun onStopTrackingTouch(bar: SeekBar?) {
                     val p = player
-                    if (p != null && p.length > 0) p.time = (seekBar!!.progress.toLong() * p.length) / seekBar.max
+                    if (p != null && p.length > 0) p.time = (bar!!.progress.toLong() * p.length) / bar.max.coerceAtLeast(1)
                     seeking = false
                 }
                 override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -118,35 +146,69 @@ class PlayerActivity : Activity() {
             })
         }
         timeRow.addView(elapsed)
-        timeRow.addView(seekBar, LinearLayout.LayoutParams(0, 42, 1f).apply { leftMargin = 12; rightMargin = 12 })
+        timeRow.addView(seekBar, LinearLayout.LayoutParams(0, 42, 1f).apply {
+            leftMargin = 12
+            rightMargin = 12
+        })
         timeRow.addView(duration)
         overlay.addView(timeRow)
 
-        val actions = LinearLayout(this).apply { gravity = Gravity.CENTER; orientation = LinearLayout.HORIZONTAL }
-        val prev = Button(this).apply { text = "⏮ PREVIOUS"; setOnClickListener { playAt(index - 1); showControls() } }
-        val next = Button(this).apply { text = "NEXT ⏭"; setOnClickListener { playAt(index + 1); showControls() } }
-        actions.addView(prev); actions.addView(next)
+        val actions = LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            orientation = LinearLayout.HORIZONTAL
+        }
+        actions.addView(Button(this).apply {
+            text = "⏮ PREVIOUS"
+            setOnClickListener { playAt(index - 1); showControls() }
+        })
+        actions.addView(Button(this).apply {
+            text = "NEXT ⏭"
+            setOnClickListener { playAt(index + 1); showControls() }
+        })
         overlay.addView(actions)
+
         root.addView(overlay, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
+        videoLayout.setOnClickListener {
+            if (overlay.visibility == View.VISIBLE) hideControls() else showControls()
+        }
 
-        videoLayout.setOnClickListener { if (overlay.visibility == View.VISIBLE) hideControls() else showControls() }
-        libVlc = LibVLC(this, arrayListOf("--no-drop-late-frames", "--no-skip-frames"))
+        libVlc = LibVLC(this)
         player = MediaPlayer(libVlc).also { mp ->
             mp.attachViews(videoLayout, null, false, false)
             mp.setEventListener(object : MediaPlayer.EventListener {
                 override fun onEvent(event: MediaPlayer.Event) {
                     when (event.type) {
-                        MediaPlayer.Event.EndReached -> runOnUiThread { if (index < items.lastIndex) playAt(index + 1) }
-                        MediaPlayer.Event.Playing, MediaPlayer.Event.Paused -> runOnUiThread { playButton.text = if (mp.isPlaying) "Ⅱ" else "▶" }
-                        MediaPlayer.Event.EncounteredError -> runOnUiThread {
-                            playButton.text = "▶"
-                            android.widget.Toast.makeText(this@PlayerActivity, "AZ CINEMA could not decode this video. Try another file or check the file is complete.", android.widget.Toast.LENGTH_LONG).show()
+                        MediaPlayer.Event.EndReached -> runOnUiThread {
+                            if (index < items.lastIndex) playAt(index + 1) else showControls()
+                        }
+                        MediaPlayer.Event.Playing, MediaPlayer.Event.Paused -> runOnUiThread {
+                            playButton.text = if (mp.isPlaying) "Ⅱ" else "▶"
+                        }
+                        MediaPlayer.Event.EncounteredError -> {
+                            if (!softwareFallbackTried) {
+                                softwareFallbackTried = true
+                                runOnUiThread {
+                                    Toast.makeText(this@PlayerActivity, "Trying compatibility playback…", Toast.LENGTH_SHORT).show()
+                                    startCurrentMedia(forceSoftwareDecode = true)
+                                }
+                            } else {
+                                runOnUiThread {
+                                    playButton.text = "▶"
+                                    Toast.makeText(
+                                        this@PlayerActivity,
+                                        "This video could not be played. The file may be incomplete or use an unsupported codec/container.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    showControls()
+                                }
+                            }
                         }
                     }
                 }
             })
         }
+
         playAt(index)
         handler.post(progressTask)
         playButton.requestFocus()
@@ -154,12 +216,14 @@ class PlayerActivity : Activity() {
 
     private fun enterImmersive() {
         @Suppress("DEPRECATION")
-        window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN
-            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            )
     }
 
     private fun formatTime(ms: Long): String {
@@ -169,7 +233,7 @@ class PlayerActivity : Activity() {
         val minutes = (total % 3600) / 60
         val seconds = total % 60
         return if (hours > 0) String.format("%d:%02d:%02d", hours, minutes, seconds)
-            else String.format("%02d:%02d", minutes, seconds)
+        else String.format("%02d:%02d", minutes, seconds)
     }
 
     private fun togglePlayback() {
@@ -184,31 +248,50 @@ class PlayerActivity : Activity() {
         handler.removeCallbacks(hideTask)
         handler.postDelayed(hideTask, 5000)
     }
+
     private fun hideControls() {
         if (player?.isPlaying == true) overlay.visibility = View.GONE
     }
+
     private val hideTask = Runnable { hideControls() }
 
     private fun playAt(newIndex: Int) {
         if (newIndex !in items.indices) return
         index = newIndex
+        softwareFallbackTried = false
         val raw = items[index].substringAfterLast('/').substringAfterLast('\\')
         title.text = raw.substringAfter("_", raw).replace('_', ' ').replace('.', ' ')
-        val uri = if (isUrl) Uri.parse(items[index]) else Uri.fromFile(File(items[index]))
-        player?.stop()
-        val media = Media(libVlc, uri).apply {
-            addOption(":avcodec-hw=any")
-            addOption(if (isUrl) ":network-caching=5000" else ":file-caching=2000")
-            addOption(":no-video-title-show")
+        val localFile = if (isUrl) null else File(items[index])
+        if (localFile != null && (!localFile.isFile || !localFile.canRead() || localFile.length() == 0L)) {
+            Toast.makeText(this, "Video file is missing, empty, or unreadable: ${localFile.name}", Toast.LENGTH_LONG).show()
+            showControls()
+            return
         }
-        player?.media = media
-        media.release()
-        player?.play()
-        seekBar.progress = 0
-        elapsed.text = "00:00"
-        duration.text = "00:00"
-        playButton.text = "Ⅱ"
-        showControls()
+        startCurrentMedia(forceSoftwareDecode = false)
+    }
+
+    private fun startCurrentMedia(forceSoftwareDecode: Boolean) {
+        val vlc = libVlc ?: return
+        val mp = player ?: return
+        try {
+            mp.stop()
+            val uri = if (isUrl) Uri.parse(items[index]) else Uri.fromFile(File(items[index]))
+            val media = Media(vlc, uri).apply {
+                addOption(if (isUrl) ":network-caching=10000" else ":file-caching=3000")
+                addOption(":no-video-title-show")
+                if (forceSoftwareDecode) addOption(":avcodec-hw=none")
+            }
+            mp.media = media
+            media.release()
+            mp.play()
+            seekBar.progress = 0
+            elapsed.text = "00:00"
+            duration.text = "00:00"
+            playButton.text = "Ⅱ"
+            showControls()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not start video: ${e.message ?: "media error"}", Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -217,9 +300,20 @@ class PlayerActivity : Activity() {
                 if (overlay.visibility != View.VISIBLE) showControls() else togglePlayback()
                 return true
             }
-            KeyEvent.KEYCODE_DPAD_LEFT -> { player?.let { it.time = (it.time - 10000).coerceAtLeast(0) }; showControls(); return true }
-            KeyEvent.KEYCODE_DPAD_RIGHT -> { player?.let { it.time = (it.time + 10000).coerceAtMost(it.length) }; showControls(); return true }
-            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> { showControls(); return true }
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                player?.let { it.time = (it.time - 10000).coerceAtLeast(0) }
+                showControls()
+                return true
+            }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                player?.let { it.time = (it.time + 10000).coerceAtMost(it.length) }
+                showControls()
+                return true
+            }
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+                showControls()
+                return true
+            }
             KeyEvent.KEYCODE_MEDIA_NEXT -> { playAt(index + 1); return true }
             KeyEvent.KEYCODE_MEDIA_PREVIOUS -> { playAt(index - 1); return true }
             KeyEvent.KEYCODE_BACK -> { finish(); return true }
@@ -230,7 +324,11 @@ class PlayerActivity : Activity() {
     override fun onStop() {
         handler.removeCallbacks(progressTask)
         handler.removeCallbacks(hideTask)
-        player?.let { it.stop(); it.detachViews(); it.release() }
+        player?.let {
+            it.stop()
+            it.detachViews()
+            it.release()
+        }
         player = null
         libVlc?.release()
         libVlc = null
