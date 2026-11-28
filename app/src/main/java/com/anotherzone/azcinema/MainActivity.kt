@@ -1,6 +1,13 @@
 package com.anotherzone.azcinema
 
 import android.app.Activity
+import android.graphics.Bitmap
+import android.util.Base64
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
+import java.io.ByteArrayOutputStream
 import android.content.Intent
 import android.os.Bundle
 import android.webkit.JavascriptInterface
@@ -41,6 +48,7 @@ class MainActivity : Activity() {
 
     inner class AZBridge {
         @JavascriptInterface fun getTransferUrl(): String = transferServer.transferUrl()
+        @JavascriptInterface fun getTransferQrDataUrl(): String = createQrDataUrl(transferServer.transferUrl())
         @JavascriptInterface fun openTelegram() {
             runOnUiThread { startActivity(Intent(this@MainActivity, TelegramActivity::class.java)) }
         }
@@ -112,6 +120,19 @@ class MainActivity : Activity() {
                 deleted
             } catch (_: Exception) { false }
         }
+    }
+
+    private fun createQrDataUrl(value: String): String {
+        val hints = mapOf(EncodeHintType.MARGIN to 1, EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M)
+        val matrix = QRCodeWriter().encode(value, BarcodeFormat.QR_CODE, 360, 360, hints)
+        val bitmap = Bitmap.createBitmap(360, 360, Bitmap.Config.ARGB_8888)
+        for (y in 0 until 360) for (x in 0 until 360) {
+            bitmap.setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+        }
+        val output = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+        bitmap.recycle()
+        return "data:image/png;base64," + Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
     }
 
     private fun libraryDir(category: String): File {
