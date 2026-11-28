@@ -7,6 +7,8 @@ plugins {
 // This prevents a newly published APK from being mistaken for the installed build.
 val ciBuildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 11
 val appVersionCode = 10000 + ciBuildNumber
+val telegramApiId = System.getenv("TELEGRAM_API_ID")?.trim()?.toIntOrNull() ?: 0
+val telegramApiHash = System.getenv("TELEGRAM_API_HASH")?.trim().orEmpty()
 
 android {
     namespace = "com.anotherzone.azcinema"
@@ -17,6 +19,8 @@ android {
         targetSdk = 28
         versionCode = appVersionCode
         versionName = "1.8.$ciBuildNumber"
+        buildConfigField("int", "TELEGRAM_API_ID", telegramApiId.toString())
+        buildConfigField("String", "TELEGRAM_API_HASH", "\"" + telegramApiHash + "\"")
     }
 
     val signingReady = listOf(
@@ -41,6 +45,9 @@ android {
             if (signingReady) signingConfig = signingConfigs.getByName("persistent")
         }
     }
+    buildFeatures {
+        buildConfig = true
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -51,4 +58,6 @@ android {
 dependencies {
     implementation("org.videolan.android:libvlc-all:3.6.5")
     implementation("org.nanohttpd:nanohttpd:2.3.1")
+    implementation("io.github.tdlib-android:core:0.1.3")
+    implementation("io.github.tdlib-android:ktx:0.1.3")
 }
