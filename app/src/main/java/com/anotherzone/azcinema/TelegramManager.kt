@@ -32,6 +32,7 @@ class TelegramManager private constructor(context: Context) {
     @Volatile private var ready = false
     @Volatile private var lastError = ""
     private val earlyUpdates = ConcurrentLinkedQueue<TdApi.Object>()
+    private val initLock = Any()
 
     @Synchronized
     fun start() {
@@ -41,12 +42,14 @@ class TelegramManager private constructor(context: Context) {
             return
         }
         try {
-            val created = Client.create(Client.ResultHandler { update ->
-                if (client == null) earlyUpdates.add(update) else handleUpdate(update)
-            }, null, null)
-            client = created
-            while (true) { val pending = earlyUpdates.poll() ?: break; handleUpdate(pending) }
             state = "Connecting to Telegram…"
+            val created = Client.create(Client.ResultHandler { update ->
+                synchronized(initLock) { if (client == null) earlyUpdates.add(update) else handleUpdate(update) }
+            }, null, null)
+            synchronized(initLock) {
+                client = created
+                while (true) { val pending = earlyUpdates.poll() ?: break; handleUpdate(pending) }
+            }
         } catch (e: Exception) {
             state = "Telegram could not start"
             lastError = e.message ?: e.javaClass.simpleName
