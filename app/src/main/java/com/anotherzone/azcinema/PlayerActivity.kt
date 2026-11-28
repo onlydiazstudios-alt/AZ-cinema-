@@ -173,7 +173,7 @@ class PlayerActivity : Activity() {
             if (overlay.visibility == View.VISIBLE) hideControls() else showControls()
         }
 
-        libVlc = LibVLC(this)
+        libVlc = LibVLC(this, arrayListOf())
         player = MediaPlayer(libVlc).also { mp ->
             mp.attachViews(videoLayout, null, false, false)
             mp.setEventListener(object : MediaPlayer.EventListener {
