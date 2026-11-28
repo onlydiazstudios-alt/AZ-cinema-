@@ -155,6 +155,8 @@ class TelegramManager private constructor(context: Context) {
         value?.javaClass?.getField(name)?.get(value)
     } catch (_: Exception) { null }
 
+    fun currentQrLink(): String = qrLink
+
     fun statusJson(): String = JSONObject()
         .put("configured", BuildConfig.TELEGRAM_API_ID > 0 && BuildConfig.TELEGRAM_API_HASH.isNotBlank())
         .put("connected", ready)
