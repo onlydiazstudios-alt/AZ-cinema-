@@ -51,4 +51,6 @@ android {
 dependencies {
     implementation("org.videolan.android:libvlc-all:3.6.5")
     implementation("org.nanohttpd:nanohttpd:2.3.1")
+    // TDLib prebuilt JNI + Java API, pinned to a verified Android API 23-compatible build.
+    implementation("com.github.capullo-tech:lib-tdlib-android:b6fd0e9")
 }
